@@ -1,37 +1,53 @@
 import cv2
 import face_alignment
 import numpy as np
+import torch
 
-cap = cv2.VideoCapture("data/s1/bbaf2n.mpg")
 
-success, frame = cap.read()
-cap.release()
+def get_cropped_mouth_video(video_path, height=96, width=128):
+    cap = cv2.VideoCapture(video_path)
+    frames = []
+    while True:
+        success, frame = cap.read()
+        if not success:
+            break
+        frames.append(frame)
 
-if not success:
-    raise RuntimeError("Could not read video")
+    cap.release()
 
-frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    if not frames:
+        raise RuntimeError("Could not read video")
 
-fa = face_alignment.FaceAlignment(face_alignment.LandmarksType.TWO_D, device="mps")
+    fa = face_alignment.FaceAlignment(face_alignment.LandmarksType.TWO_D, device="mps")
+    mouth_cropped_frames = []
+    for frame in frames:
+        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-faces = fa.get_landmarks(frame_rgb)
+        faces = fa.get_landmarks(frame_rgb)
 
-if faces is None:
-    print("No face detected")
-else:
-    landmarks = faces[0]
-    mouth = landmarks[48:68]
-    xs = mouth[:, 0]
-    ys = mouth[:, 1]
-    x_min, x_max = xs.min(), xs.max()
-    y_min, y_max = ys.min(), ys.max()
-    padding = 5
-    mouth_crop = frame[
-        int(y_min) - padding : int(y_max) + padding,
-        int(x_min) - padding : int(x_max) + padding,
-    ]
-    # resize to 128x96
-    mouth_crop = cv2.resize(mouth_crop, (128, 96))
-    cv2.imshow("Mouth crop", mouth_crop)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+        if faces is None:
+            print("No face detected")
+        else:
+            landmarks = faces[0]
+            mouth = landmarks[48:68]
+
+            xs = mouth[:, 0]
+            ys = mouth[:, 1]
+            x_min, x_max = xs.min(), xs.max()
+            y_min, y_max = ys.min(), ys.max()
+            padding = 10
+            mouth_crop = frame_rgb[
+                int(y_min) - padding : int(y_max) + padding,
+                int(x_min) - padding : int(x_max) + padding,
+            ]
+            # resize to 128x96
+            mouth_crop = cv2.resize(mouth_crop, (128, 96))
+            mouth_cropped_frames.append(mouth_crop)
+
+    # convert to video tensor
+    video = np.stack(mouth_cropped_frames)
+    video_tensor = torch.from_numpy(video)
+    video_tensor = video_tensor.permute(0, 3, 1, 2)  # (N, H, W, C) -> (N, C, H, W)
+    video_tensor = video_tensor.float() / 255.0  # normalize to [0, 1]
+
+    return video_tensor
