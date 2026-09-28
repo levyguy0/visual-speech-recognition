@@ -1,8 +1,9 @@
 import os
 import random
 
+import matplotlib.pyplot as plt
 import torch
-from mouth_crop import get_cropped_mouth_video_tensor
+from sklearn.metrics import ConfusionMatrixDisplay, confusion_matrix
 from torch import nn
 from torch.nn.utils.rnn import pack_padded_sequence, pad_sequence
 from torch.utils.data import DataLoader, Dataset
@@ -121,9 +122,9 @@ class LipReader(nn.Module):
 
 model = LipReader().to(device)
 loss_fn = nn.CrossEntropyLoss()
-optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+optimizer = torch.optim.Adam(model.parameters(), lr=3e-4)
 
-num_epochs = 10
+num_epochs = 50
 
 for epoch in range(num_epochs):
     model.train()
@@ -140,6 +141,8 @@ for epoch in range(num_epochs):
     train_avg_loss /= len(train_loader)
 
     model.eval()
+    test_correct = 0
+    test_total = 0
     test_avg_loss = 0
     with torch.inference_mode():
         for clips, lengths, labels in test_loader:
@@ -148,10 +151,46 @@ for epoch in range(num_epochs):
                 labels.to(device),
             )
             logits = model(clips, lengths)
+            y_pred_probs = torch.softmax(logits, dim=1)
+            y_pred = torch.argmax(y_pred_probs, dim=1)
+
+            test_correct += (y_pred == labels).sum().item()
+            test_total += labels.size(0)
             loss = loss_fn(logits, labels)
             test_avg_loss += loss.item()
         test_avg_loss /= len(test_loader)
+        test_accuracy = test_correct / test_total
 
     print(
-        f"Epoch {epoch + 1}/{num_epochs}, Train Loss: {train_avg_loss:.4f}, Test Loss: {test_avg_loss:.4f}"
+        f"Epoch {epoch + 1}/{num_epochs}, Train Loss: {train_avg_loss:.4f}, Test Loss: {test_avg_loss:.4f}, Test Accuracy: {test_accuracy:.2f}"
     )
+
+
+model.eval()
+
+all_labels = []
+all_predictions = []
+
+with torch.inference_mode():
+    for clips, lengths, labels in test_loader:
+        clips = clips.to(device)
+        labels = labels.to(device)
+
+        logits = model(clips, lengths)
+        predictions = logits.argmax(dim=1)
+
+        all_labels.extend(labels.cpu().numpy())
+        all_predictions.extend(predictions.cpu().numpy())
+
+class_names = ["blue", "green", "red", "white"]
+
+cm = confusion_matrix(all_labels, all_predictions)
+
+disp = ConfusionMatrixDisplay(
+    confusion_matrix=cm,
+    display_labels=class_names,
+)
+
+disp.plot()
+plt.title("Lip Reader Confusion Matrix")
+plt.show()

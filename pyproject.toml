@@ -9,9 +9,11 @@ authors = [
 requires-python = ">=3.12"
 dependencies = [
     "face-alignment>=1.5.0",
+    "matplotlib>=3.11.2",
     "mediapipe>=1.0.1",
     "opencv-python>=5.0.0.93",
     "requests>=2.34.2",
+    "scikit-learn>=1.9.1",
 ]
 
 [project.scripts]
