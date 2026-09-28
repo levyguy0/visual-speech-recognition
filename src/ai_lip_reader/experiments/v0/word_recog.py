@@ -3,67 +3,74 @@ import os
 import cv2
 
 TARGET_DIR = "data/color_words_only"
-SOURCE_DIR = "data/videos/s1"
-ALIGN_DIR = "data/alignments/s1"
+SOURCE_DIR = "data/videos"
+ALIGN_DIR = "data/alignments"
 
 # colors only initially
+speakers = ["s1", "s2", "s3"]
 colors = ["blue", "green", "red", "white"]
 vocab = {color: i for i, color in enumerate(colors)}
 
-for file_name in os.listdir(SOURCE_DIR):
-    if not file_name.endswith(".mpg"):
-        continue
+for speaker in speakers:
+    SPEAKER_SOURCE_DIR = f"{SOURCE_DIR}/{speaker}"
+    SPEAKER_ALIGN_DIR = f"{ALIGN_DIR}/{speaker}"
 
-    video_path = f"{SOURCE_DIR}/{file_name}"
-    align_path = f"{ALIGN_DIR}/{file_name.split('.')[0]}.align"
+    for file_name in os.listdir(SPEAKER_SOURCE_DIR):
+        if not file_name.endswith(".mpg"):
+            continue
 
-    cap = cv2.VideoCapture(video_path)
-    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        video_path = f"{SPEAKER_SOURCE_DIR}/{file_name}"
+        align_path = f"{SPEAKER_ALIGN_DIR}/{file_name.split('.')[0]}.align"
 
-    with open(align_path) as f:
-        lines = f.readlines()
+        cap = cv2.VideoCapture(video_path)
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
-        for line in lines:
-            start, end, word = line.strip().split()
+        with open(align_path) as f:
+            lines = f.readlines()
 
-            if word not in vocab:
-                continue
+            for line in lines:
+                start, end, word = line.strip().split()
 
-            start = int(start)
-            end = int(end)
+                if word not in vocab:
+                    continue
 
-            start_frame = int(start / 75000 * total_frames)
-            end_frame = int(end / 75000 * total_frames)
+                start = int(start)
+                end = int(end)
 
-            cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
+                start_frame = int(start / 75000 * total_frames)
+                end_frame = int(end / 75000 * total_frames)
 
-            word_frames = []
+                cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
 
-            for _ in range(end_frame - start_frame):
-                success, frame = cap.read()
+                word_frames = []
 
-                if not success:
-                    break
+                for _ in range(end_frame - start_frame):
+                    success, frame = cap.read()
 
-                word_frames.append(frame)
+                    if not success:
+                        break
 
-            if not word_frames:
-                raise ValueError(f"No frames found for word {word}")
+                    word_frames.append(frame)
 
-            height, width = word_frames[0].shape[:2]
+                if not word_frames:
+                    raise ValueError(f"No frames found for word {word}")
 
-            fourcc = cv2.VideoWriter_fourcc(*"mp4v")  # type: ignore[attr-defined]
+                height, width = word_frames[0].shape[:2]
 
-            writer = cv2.VideoWriter(
-                f"{TARGET_DIR}/{word}/{file_name.split('.')[0]}.mp4",
-                fourcc,
-                25,
-                (width, height),
-            )
+                fourcc = cv2.VideoWriter_fourcc(*"mp4v")  # type: ignore[attr-defined]
 
-            for frame in word_frames:
-                writer.write(frame)
+                os.makedirs(f"{TARGET_DIR}/{speaker}/{word}", exist_ok=True)
 
-            writer.release()
+                writer = cv2.VideoWriter(
+                    f"{TARGET_DIR}/{speaker}/{word}/{file_name.split('.')[0]}.mp4",
+                    fourcc,
+                    25,
+                    (width, height),
+                )
 
-    cap.release()
+                for frame in word_frames:
+                    writer.write(frame)
+
+                writer.release()
+
+        cap.release()
