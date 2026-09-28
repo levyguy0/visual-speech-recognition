@@ -2,11 +2,12 @@ import os
 import random
 
 import torch
-from cv2.dnn import ModelFormat
 from mouth_crop import get_cropped_mouth_video_tensor
 from torch import nn
 from torch.nn.utils.rnn import pack_padded_sequence, pad_sequence
 from torch.utils.data import DataLoader, Dataset
+
+device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
 
 
 class ColorWordDataset(Dataset):
@@ -31,7 +32,7 @@ class ColorWordDataset(Dataset):
         clip_path = self.clip_paths[idx]
         label = self.clip_path_to_label[clip_path]
 
-        clip_tensor = get_cropped_mouth_video_tensor(clip_path)
+        clip_tensor = torch.load(clip_path)
 
         label_tensor = torch.tensor(label, dtype=torch.long)
         return clip_tensor, label_tensor
@@ -54,21 +55,17 @@ def collate_fn(batch):
 
 
 all_clip_paths = []
-for color_dir in os.listdir("data/color_words_only"):
-    if color_dir == ".DS_Store":
-        continue
 
-    for clip_path in os.listdir(os.path.join("data/color_words_only", color_dir)):
-        all_clip_paths.append(
-            os.path.join("data/color_words_only", color_dir, clip_path)
-        )
+for color in ["blue", "green", "red", "white"]:
+    directory = f"data/color_words_processed/{color}"
 
+    for filename in os.listdir(directory):
+        if filename.endswith(".pt"):
+            all_clip_paths.append(os.path.join(directory, filename))
 
 random.shuffle(all_clip_paths)
 train_clip_paths = all_clip_paths[: int(len(all_clip_paths) * 0.8)]
 test_clip_paths = all_clip_paths[int(len(all_clip_paths) * 0.8) :]
-
-print(len(train_clip_paths), len(test_clip_paths))
 
 train_dataset = ColorWordDataset(train_clip_paths)
 test_dataset = ColorWordDataset(test_clip_paths)
@@ -120,3 +117,41 @@ class LipReader(nn.Module):
         _, (hidden, _) = self.lstm(x)
         logits = self.classifier(hidden[-1])
         return logits
+
+
+model = LipReader().to(device)
+loss_fn = nn.CrossEntropyLoss()
+optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+
+num_epochs = 10
+
+for epoch in range(num_epochs):
+    model.train()
+    train_avg_loss = 0
+    for clips, lengths, labels in train_loader:
+        clips, labels = clips.to(device), labels.to(device)
+        logits = model(clips, lengths)
+        loss = loss_fn(logits, labels)
+        train_avg_loss += loss.item()
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+    train_avg_loss /= len(train_loader)
+
+    model.eval()
+    test_avg_loss = 0
+    with torch.inference_mode():
+        for clips, lengths, labels in test_loader:
+            clips, labels = (
+                clips.to(device),
+                labels.to(device),
+            )
+            logits = model(clips, lengths)
+            loss = loss_fn(logits, labels)
+            test_avg_loss += loss.item()
+        test_avg_loss /= len(test_loader)
+
+    print(
+        f"Epoch {epoch + 1}/{num_epochs}, Train Loss: {train_avg_loss:.4f}, Test Loss: {test_avg_loss:.4f}"
+    )

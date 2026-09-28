@@ -1,10 +1,9 @@
 import cv2
-import face_alignment
 import numpy as np
 import torch
 
 
-def get_cropped_mouth_video_tensor(video_path, height=96, width=128):
+def get_cropped_mouth_video_tensor(fa, video_path, height=96, width=128):
     cap = cv2.VideoCapture(video_path)
     frames = []
     while True:
@@ -18,7 +17,6 @@ def get_cropped_mouth_video_tensor(video_path, height=96, width=128):
     if not frames:
         raise RuntimeError("Could not read video")
 
-    fa = face_alignment.FaceAlignment(face_alignment.LandmarksType.TWO_D, device="mps")
     mouth_cropped_frames = []
     for frame in frames:
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
