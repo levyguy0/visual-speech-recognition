@@ -4,7 +4,7 @@ import numpy as np
 import torch
 
 
-def get_cropped_mouth_video(video_path, height=96, width=128):
+def get_cropped_mouth_video_tensor(video_path, height=96, width=128):
     cap = cv2.VideoCapture(video_path)
     frames = []
     while True:
