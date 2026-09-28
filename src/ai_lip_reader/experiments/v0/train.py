@@ -2,8 +2,10 @@ import os
 import random
 
 import torch
+from cv2.dnn import ModelFormat
 from mouth_crop import get_cropped_mouth_video_tensor
-from torch.nn.utils.rnn import pad_sequence
+from torch import nn
+from torch.nn.utils.rnn import pack_padded_sequence, pad_sequence
 from torch.utils.data import DataLoader, Dataset
 
 
@@ -77,8 +79,44 @@ train_loader = DataLoader(
 test_loader = DataLoader(
     test_dataset, batch_size=32, shuffle=False, collate_fn=collate_fn
 )
-clips, lengths, labels = next(iter(train_loader))
 
-print(clips.shape)
-print(lengths)
-print(labels.shape)
+
+class LipReader(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+        self.cnn = nn.Sequential(
+            nn.Conv2d(3, 32, kernel_size=3, padding=1),
+            nn.ReLU(),
+            nn.MaxPool2d(2),
+            nn.Conv2d(32, 64, kernel_size=3, padding=1),
+            nn.ReLU(),
+            nn.MaxPool2d(2),
+            nn.Conv2d(64, 128, kernel_size=3, padding=1),
+            nn.ReLU(),
+            nn.AdaptiveAvgPool2d((1, 1)),
+        )
+
+        self.lstm = nn.LSTM(
+            input_size=128,
+            hidden_size=128,
+            batch_first=True,
+        )
+
+        self.classifier = nn.Linear(128, 4)
+
+    def forward(self, x, lengths):
+        B, T, C, H, W = x.shape
+        x = x.reshape(B * T, C, H, W)
+        x = self.cnn(x)
+        x = x.flatten(1)
+        x = x.reshape(B, T, 128)
+        x = pack_padded_sequence(
+            x,
+            lengths.cpu(),
+            batch_first=True,
+            enforce_sorted=False,
+        )
+        _, (hidden, _) = self.lstm(x)
+        logits = self.classifier(hidden[-1])
+        return logits
