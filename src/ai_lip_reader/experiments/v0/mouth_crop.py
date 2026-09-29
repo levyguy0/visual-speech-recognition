@@ -43,9 +43,13 @@ def get_cropped_mouth_video_tensor(fa, video_path, height=96, width=128):
             mouth_cropped_frames.append(mouth_crop)
 
     # convert to video tensor
+    if len(mouth_cropped_frames) == 0:
+        print("No mouth cropped frames")
+        return None, "No mouth cropped frames"
+
     video = np.stack(mouth_cropped_frames)
     video_tensor = torch.from_numpy(video)
     video_tensor = video_tensor.permute(0, 3, 1, 2)  # (N, H, W, C) -> (N, C, H, W)
     video_tensor = video_tensor.float() / 255.0  # normalize to [0, 1]
 
-    return video_tensor
+    return video_tensor, None

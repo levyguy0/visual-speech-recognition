@@ -110,6 +110,7 @@ class LipReader(nn.Module):
             batch_first=True,
         )
 
+        self.dropout = nn.Dropout(p=0.3)
         self.classifier = nn.Linear(128, 4)
 
     def forward(self, x, lengths):
@@ -125,7 +126,7 @@ class LipReader(nn.Module):
             enforce_sorted=False,
         )
         _, (hidden, _) = self.lstm(x)
-        logits = self.classifier(hidden[-1])
+        logits = self.classifier(self.dropout(hidden[-1]))
         return logits
 
 
@@ -133,7 +134,9 @@ model = LipReader().to(device)
 loss_fn = nn.CrossEntropyLoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=3e-4)
 
-num_epochs = 50
+num_epochs = 25
+best_model_state = None
+lowest_test_loss = float("inf")
 
 for epoch in range(num_epochs):
     model.train()
@@ -166,6 +169,11 @@ for epoch in range(num_epochs):
             test_correct += (y_pred == labels).sum().item()
             test_total += labels.size(0)
             loss = loss_fn(logits, labels)
+
+            if loss.item() < lowest_test_loss:
+                lowest_test_loss = loss.item()
+                best_model_state = model.state_dict()
+
             test_avg_loss += loss.item()
         test_avg_loss /= len(test_loader)
         test_accuracy = test_correct / test_total
@@ -174,6 +182,8 @@ for epoch in range(num_epochs):
         f"Epoch {epoch + 1}/{num_epochs}, Train Loss: {train_avg_loss:.4f}, Test Loss: {test_avg_loss:.4f}, Test Accuracy: {test_accuracy:.2f}"
     )
 
+# save best model
+torch.save(best_model_state, "best_model.pth")
 
 model.eval()
 
