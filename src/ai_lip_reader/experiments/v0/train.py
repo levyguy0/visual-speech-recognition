@@ -55,18 +55,27 @@ def collate_fn(batch):
     return clips, lengths, labels
 
 
-all_clip_paths = []
+train_clip_paths = []
+test_clip_paths = []
 
-for color in ["blue", "green", "red", "white"]:
-    directory = f"data/color_words_processed/{color}"
+for speaker in ["s1", "s2", "s3", "s4", "s5", "s6", "s7", "s8", "s9", "s10"]:
+    for color in ["blue", "green", "red", "white"]:
+        directory = f"data/color_words_processed/{speaker}/{color}"
 
-    for filename in os.listdir(directory):
-        if filename.endswith(".pt"):
-            all_clip_paths.append(os.path.join(directory, filename))
+        if speaker in ["s9", "s10"]:
+            for filename in os.listdir(directory):
+                if filename.endswith(".pt"):
+                    test_clip_paths.append(os.path.join(directory, filename))
+        else:
+            for filename in os.listdir(directory):
+                if filename.endswith(".pt"):
+                    train_clip_paths.append(os.path.join(directory, filename))
 
-random.shuffle(all_clip_paths)
-train_clip_paths = all_clip_paths[: int(len(all_clip_paths) * 0.8)]
-test_clip_paths = all_clip_paths[int(len(all_clip_paths) * 0.8) :]
+random.shuffle(train_clip_paths)
+random.shuffle(test_clip_paths)
+
+print(f"Train clip paths: {len(train_clip_paths)}")
+print(f"Test clip paths: {len(test_clip_paths)}")
 
 train_dataset = ColorWordDataset(train_clip_paths)
 test_dataset = ColorWordDataset(test_clip_paths)

@@ -7,7 +7,7 @@ SOURCE_DIR = "data/videos"
 ALIGN_DIR = "data/alignments"
 
 # colors only initially
-speakers = ["s1", "s2", "s3"]
+speakers = ["s1", "s2", "s3", "s4", "s5", "s6", "s7", "s8", "s9", "s10"]
 colors = ["blue", "green", "red", "white"]
 vocab = {color: i for i, color in enumerate(colors)}
 
@@ -19,6 +19,7 @@ for speaker in speakers:
         if not file_name.endswith(".mpg"):
             continue
 
+        print(f"Processing {file_name}")
         video_path = f"{SPEAKER_SOURCE_DIR}/{file_name}"
         align_path = f"{SPEAKER_ALIGN_DIR}/{file_name.split('.')[0]}.align"
 
@@ -53,7 +54,8 @@ for speaker in speakers:
                     word_frames.append(frame)
 
                 if not word_frames:
-                    raise ValueError(f"No frames found for word {word}")
+                    print(f"No frames found for word {word}")
+                    continue
 
                 height, width = word_frames[0].shape[:2]
 
