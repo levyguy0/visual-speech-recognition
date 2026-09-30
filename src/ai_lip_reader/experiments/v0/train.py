@@ -33,7 +33,9 @@ class ColorWordDataset(Dataset):
         clip_path = self.clip_paths[idx]
         label = self.clip_path_to_label[clip_path]
 
-        clip_tensor = torch.load(clip_path)
+        clip_tensor = torch.load(clip_path, weights_only=True)
+        if clip_tensor.dtype == torch.uint8:
+            clip_tensor = clip_tensor.float() / 255.0
 
         label_tensor = torch.tensor(label, dtype=torch.long)
         return clip_tensor, label_tensor

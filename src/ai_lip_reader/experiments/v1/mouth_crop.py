@@ -50,6 +50,6 @@ def get_cropped_mouth_video_tensor(fa, video_path, height=96, width=128):
     video = np.stack(mouth_cropped_frames)
     video_tensor = torch.from_numpy(video)
     video_tensor = video_tensor.permute(0, 3, 1, 2)  # (N, H, W, C) -> (N, C, H, W)
-    video_tensor = video_tensor.float() / 255.0  # normalize to [0, 1]
+    # Keep uint8 pixels for compact storage; normalize when loading for training.
 
     return video_tensor, None
