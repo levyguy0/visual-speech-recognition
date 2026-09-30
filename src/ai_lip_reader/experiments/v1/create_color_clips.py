@@ -2,14 +2,11 @@ import os
 
 import cv2
 
-TARGET_DIR = "data/color_words_only"
+TARGET_DIR = "data/all_grid_word_clips"
 SOURCE_DIR = "data/videos"
 ALIGN_DIR = "data/alignments"
 
 speakers = [f"s{i}" for i in range(1, 26) if i != 21]
-
-colors = ["blue", "green", "red", "white"]
-vocab = {color: i for i, color in enumerate(colors)}
 
 for speaker in speakers:
     SPEAKER_SOURCE_DIR = f"{SOURCE_DIR}/{speaker}"
@@ -32,7 +29,7 @@ for speaker in speakers:
             for line in lines:
                 start, end, word = line.strip().split()
 
-                if word not in vocab:
+                if word in ["sil", "sp"]:
                     continue
 
                 start = int(start)
