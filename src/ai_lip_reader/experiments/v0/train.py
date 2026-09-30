@@ -58,11 +58,11 @@ def collate_fn(batch):
 train_clip_paths = []
 test_clip_paths = []
 
-for speaker in ["s1", "s2", "s3", "s4", "s5", "s6", "s7", "s8", "s9", "s10"]:
+for speaker in [s for s in os.listdir("data/videos") if s != ".DS_Store"]:
     for color in ["blue", "green", "red", "white"]:
         directory = f"data/color_words_processed/{speaker}/{color}"
 
-        if speaker in ["s9", "s10"]:
+        if speaker in ["s21", "s23", "s24", "s25"]:
             for filename in os.listdir(directory):
                 if filename.endswith(".pt"):
                     test_clip_paths.append(os.path.join(directory, filename))

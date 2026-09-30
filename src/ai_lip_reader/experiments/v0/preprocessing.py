@@ -10,7 +10,23 @@ output_root = Path("data/color_words_processed")
 
 fa = face_alignment.FaceAlignment(face_alignment.LandmarksType.TWO_D, device="mps")
 
-for speaker in ["s1", "s2", "s3", "s4", "s5", "s6", "s7", "s8", "s9", "s10"]:
+# for speaker in ["s1", "s2", "s3", "s4", "s5", "s6", "s7", "s8", "s9", "s10"]:
+for speaker in [
+    "s11",
+    "s12",
+    "s13",
+    "s14",
+    "s15",
+    "s16",
+    "s17",
+    "s18",
+    "s19",
+    "s20",
+    "s22",
+    "s23",
+    "s24",
+    "s25",
+]:
     for color in ["blue", "green", "red", "white"]:
         input_dir = input_root / speaker / color
         output_dir = output_root / speaker / color

@@ -7,7 +7,23 @@ SOURCE_DIR = "data/videos"
 ALIGN_DIR = "data/alignments"
 
 # colors only initially
-speakers = ["s1", "s2", "s3", "s4", "s5", "s6", "s7", "s8", "s9", "s10"]
+# speakers = ["s1", "s2", "s3", "s4", "s5", "s6", "s7", "s8", "s9", "s10"]
+speakers = [
+    "s11",
+    "s12",
+    "s13",
+    "s14",
+    "s15",
+    "s16",
+    "s17",
+    "s18",
+    "s19",
+    "s20",
+    "s22",
+    "s23",
+    "s24",
+    "s25",
+]
 colors = ["blue", "green", "red", "white"]
 vocab = {color: i for i, color in enumerate(colors)}
 
