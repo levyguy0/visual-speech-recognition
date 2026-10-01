@@ -1,4 +1,6 @@
+import copy
 import os
+import pickle
 import random
 
 import matplotlib.pyplot as plt
@@ -78,6 +80,10 @@ for speaker in [s for s in os.listdir("data/videos") if s != ".DS_Store"]:
 
 random.shuffle(train_clip_paths)
 random.shuffle(test_clip_paths)
+vocab = sorted(vocab)
+
+with open("vocab.pkl", "wb") as f:
+    pickle.dump(vocab, f)
 
 print(f"Train clip paths: {len(train_clip_paths)}")
 print(f"Test clip paths: {len(test_clip_paths)}")
@@ -116,7 +122,7 @@ class LipReader(nn.Module):
         )
 
         self.dropout = nn.Dropout(p=0.3)
-        self.classifier = nn.Linear(128, 4)
+        self.classifier = nn.Linear(128, len(vocab))
 
     def forward(self, x, lengths):
         B, T, C, H, W = x.shape
@@ -140,7 +146,7 @@ loss_fn = nn.CrossEntropyLoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=3e-4)
 
 num_epochs = 25
-best_model_state = None
+best_model_state = copy.deepcopy(model.state_dict())
 lowest_test_loss = float("inf")
 
 for epoch in range(num_epochs):
@@ -175,13 +181,14 @@ for epoch in range(num_epochs):
             test_total += labels.size(0)
             loss = loss_fn(logits, labels)
 
-            if loss.item() < lowest_test_loss:
-                lowest_test_loss = loss.item()
-                best_model_state = model.state_dict()
-
             test_avg_loss += loss.item()
+
         test_avg_loss /= len(test_loader)
         test_accuracy = test_correct / test_total
+
+        if test_avg_loss < lowest_test_loss:
+            lowest_test_loss = test_avg_loss
+            best_model_state = copy.deepcopy(model.state_dict())
 
     print(
         f"Epoch {epoch + 1}/{num_epochs}, Train Loss: {train_avg_loss:.4f}, Test Loss: {test_avg_loss:.4f}, Test Accuracy: {test_accuracy:.2f}"
@@ -190,6 +197,7 @@ for epoch in range(num_epochs):
 # save best model
 torch.save(best_model_state, "best_model.pth")
 
+model.load_state_dict(best_model_state)
 model.eval()
 
 all_labels = []
@@ -206,13 +214,11 @@ with torch.inference_mode():
         all_labels.extend(labels.cpu().numpy())
         all_predictions.extend(predictions.cpu().numpy())
 
-class_names = ["blue", "green", "red", "white"]
-
 cm = confusion_matrix(all_labels, all_predictions)
 
 disp = ConfusionMatrixDisplay(
     confusion_matrix=cm,
-    display_labels=class_names,
+    display_labels=vocab,
 )
 
 disp.plot()
