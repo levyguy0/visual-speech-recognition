@@ -99,51 +99,137 @@ test_loader = DataLoader(
 )
 
 
+class ResidualBlock(nn.Module):
+    def __init__(self, in_channels, out_channels, stride=1):
+        super().__init__()
+
+        self.conv1 = nn.Conv2d(
+            in_channels,
+            out_channels,
+            kernel_size=3,
+            stride=stride,
+            padding=1,
+            bias=False,
+        )
+        self.bn1 = nn.BatchNorm2d(out_channels)
+
+        self.conv2 = nn.Conv2d(
+            out_channels,
+            out_channels,
+            kernel_size=3,
+            padding=1,
+            bias=False,
+        )
+        self.bn2 = nn.BatchNorm2d(out_channels)
+
+        if stride != 1 or in_channels != out_channels:
+            self.skip = nn.Sequential(
+                nn.Conv2d(
+                    in_channels,
+                    out_channels,
+                    kernel_size=1,
+                    stride=stride,
+                    bias=False,
+                ),
+                nn.BatchNorm2d(out_channels),
+            )
+        else:
+            self.skip = nn.Identity()
+
+        self.relu = nn.ReLU(inplace=True)
+
+    def forward(self, x):
+        residual = self.skip(x)
+
+        x = self.relu(self.bn1(self.conv1(x)))
+        x = self.bn2(self.conv2(x))
+
+        x = x + residual
+        x = self.relu(x)
+
+        return x
+
+
 class LipReader(nn.Module):
     def __init__(self):
         super().__init__()
 
         self.cnn = nn.Sequential(
-            nn.Conv2d(3, 32, kernel_size=3, padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(2),
-            nn.Conv2d(32, 64, kernel_size=3, padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(2),
-            nn.Conv2d(64, 128, kernel_size=3, padding=1),
-            nn.ReLU(),
+            nn.Conv2d(
+                3,
+                32,
+                kernel_size=5,
+                stride=2,
+                padding=2,
+                bias=False,
+            ),
+            nn.BatchNorm2d(32),
+            nn.ReLU(inplace=True),
+            ResidualBlock(32, 64, stride=2),
+            ResidualBlock(64, 64),
+            ResidualBlock(64, 128, stride=2),
+            ResidualBlock(128, 128),
+            ResidualBlock(128, 256, stride=2),
+            ResidualBlock(256, 256),
             nn.AdaptiveAvgPool2d((1, 1)),
         )
 
         self.lstm = nn.LSTM(
-            input_size=128,
-            hidden_size=128,
+            input_size=256,
+            hidden_size=256,
+            num_layers=2,
             batch_first=True,
+            bidirectional=True,
+            dropout=0.3,
         )
 
-        self.dropout = nn.Dropout(p=0.3)
-        self.classifier = nn.Linear(128, len(vocab))
+        self.classifier = nn.Sequential(
+            nn.Dropout(0.4),
+            nn.Linear(512, 256),
+            nn.ReLU(inplace=True),
+            nn.Dropout(0.3),
+            nn.Linear(256, len(vocab)),
+        )
 
     def forward(self, x, lengths):
         B, T, C, H, W = x.shape
         x = x.reshape(B * T, C, H, W)
+
         x = self.cnn(x)
+
         x = x.flatten(1)
-        x = x.reshape(B, T, 128)
+
+        x = x.reshape(B, T, 256)
+
         x = pack_padded_sequence(
             x,
             lengths.cpu(),
             batch_first=True,
             enforce_sorted=False,
         )
+
         _, (hidden, _) = self.lstm(x)
-        logits = self.classifier(self.dropout(hidden[-1]))
+
+        forward_hidden = hidden[-2]
+        backward_hidden = hidden[-1]
+
+        x = torch.cat(
+            [forward_hidden, backward_hidden],
+            dim=1,
+        )
+
+        logits = self.classifier(x)
+
         return logits
 
 
 model = LipReader().to(device)
 loss_fn = nn.CrossEntropyLoss()
-optimizer = torch.optim.Adam(model.parameters(), lr=3e-4)
+optimizer = torch.optim.AdamW(
+    model.parameters(),
+    lr=3e-4,
+    weight_decay=1e-4,
+)
 
 num_epochs = 25
 best_model_state = copy.deepcopy(model.state_dict())
