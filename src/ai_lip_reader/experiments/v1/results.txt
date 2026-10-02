@@ -1,1 +1,2 @@
 baseline cnn + lstm ~61% accuracy on 51 grid words after 10 epochs
+resnet cnn + bilstm 72% accuracy after 10 epochs
