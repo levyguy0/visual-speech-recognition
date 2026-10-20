@@ -154,20 +154,17 @@ class LipReader(nn.Module):
     def __init__(self):
         super().__init__()
 
-        self.frontend_3d = nn.Sequential(
-            nn.Conv3d(
+        self.cnn = nn.Sequential(
+            nn.Conv2d(
                 3,
                 32,
-                kernel_size=(5, 7, 7),
-                stride=(1, 2, 2),
-                padding=(2, 3, 3),
+                kernel_size=5,
+                stride=2,
+                padding=2,
                 bias=False,
             ),
-            nn.BatchNorm3d(32),
+            nn.BatchNorm2d(32),
             nn.ReLU(inplace=True),
-        )
-
-        self.resnet = nn.Sequential(
             ResidualBlock(32, 64, stride=2),
             ResidualBlock(64, 64),
             ResidualBlock(64, 128, stride=2),
@@ -196,18 +193,9 @@ class LipReader(nn.Module):
 
     def forward(self, x, lengths):
         B, T, C, H, W = x.shape
-
-        x = x.permute(0, 2, 1, 3, 4)  # B, C, T, H, W
-
-        x = self.frontend_3d(x)
-
-        x = x.permute(0, 2, 1, 3, 4)  # B, T, C, H, W
-
-        B, T, C, H, W = x.shape
-
         x = x.reshape(B * T, C, H, W)
 
-        x = self.resnet(x)
+        x = self.cnn(x)
 
         x = x.flatten(1)
 
